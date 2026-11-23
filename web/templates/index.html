@@ -1182,6 +1182,17 @@
     window.onload = function() {
       init3D();
       render2DCAD();
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      if (tabParam) {
+        const pill = document.querySelector(`[onclick*="${tabParam}"]`);
+        if (pill) {
+          switchStage(tabParam, pill);
+          if (tabParam === 'testing-suite') setTimeout(runAutomatedTests, 300);
+          if (tabParam === 'plots') setTimeout(refreshPlot, 300);
+        }
+      }
     };
   </script>
 </body>
