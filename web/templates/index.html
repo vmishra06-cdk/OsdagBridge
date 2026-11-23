@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OsdagBridge - Glass CAD & Engineering Platform | FOSSEE IIT Bombay</title>
+  
+  <!-- CDNs for Three.js, OrbitControls, and Plotly -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist@2.24.1/plotly.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --primary: #1B365D;
+      --accent-blue: #38BDF8;
+      --accent-cyan: #06B6D4;
+      --accent-amber: #F59E0B;
+      --pass: #10B981;
+      --fail: #EF4444;
+      --glass-bg: rgba(15, 23, 42, 0.72);
+      --glass-card: rgba(30, 41, 59, 0.65);
+      --glass-border: rgba(255, 255, 255, 0.14);
+      --glass-border-hover: rgba(56, 189, 248, 0.45);
+      --glass-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.55), inset 0 1px 0 0 rgba(255, 255, 255, 0.18);
+      --text-main: #F8FAFC;
+      --text-sub: #94A3B8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', -apple-system, sans-serif; }
+    
+    body {
+      background: #070B14;
+      background-image: 
+        radial-gradient(circle at 10% 15%, rgba(30, 58, 138, 0.32) 0%, transparent 45%),
+        radial-gradient(circle at 90% 85%, rgba(14, 165, 233, 0.22) 0%, transparent 45%),
+        radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.8) 0%, transparent 100%);
+      background-attachment: fixed;
+      color: var(--text-main);
+      overflow-x: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Glass Navigation Header */
+    header {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(20px) saturate(190%);
+      -webkit-backdrop-filter: blur(20px) saturate(190%);
+      height: 60px;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--glass-border);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      z-index: 100;
+    }
+
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .logo-glow {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg, #0284C7, #38BDF8);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.5);
+    }
+    .brand h1 { font-size: 19px; font-weight: 800; letter-spacing: 0.5px; background: linear-gradient(to right, #FFFFFF, #BAE6FD); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+    .glass-badge {
+      font-size: 11px; padding: 4px 10px; border-radius: 9999px; font-weight: 600;
+      background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.15); display: inline-flex; align-items: center; gap: 6px;
+    }
+    .badge-pulse {
+      width: 6px; height: 6px; border-radius: 50%; background: #10B981;
+      box-shadow: 0 0 8px #10B981; animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.85); } }
+
+    /* Glass Buttons */
+    .btn {
+      padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 7px; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      border: 1px solid transparent; text-decoration: none;
+    }
+    .btn-glass {
+      background: rgba(255, 255, 255, 0.08); color: white;
+      border: 1px solid var(--glass-border); backdrop-filter: blur(12px);
+    }
+    .btn-glass:hover {
+      background: rgba(255, 255, 255, 0.15); border-color: var(--glass-border-hover);
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.35); transform: translateY(-1px);
+    }
+    .btn-gradient {
+      background: linear-gradient(135deg, #0284C7, #2563EB); color: white;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+    }
+    .btn-gradient:hover {
+      box-shadow: 0 6px 20px rgba(56, 189, 248, 0.55); transform: translateY(-1px);
+    }
+
+    /* App Workspace */
+    .app-body { display: flex; flex: 1; overflow: hidden; position: relative; }
+
+    /* Glass Sidebar */
+    .glass-sidebar {
+      width: 270px; background: rgba(15, 23, 42, 0.68);
+      backdrop-filter: blur(24px) saturate(190%);
+      -webkit-backdrop-filter: blur(24px) saturate(190%);
+      border-right: 1px solid var(--glass-border);
+      display: flex; flex-direction: column; padding: 12px 10px; gap: 4px; z-index: 50;
+    }
+    .nav-pill {
+      padding: 12px 16px; border-radius: 10px; font-size: 13.5px; font-weight: 600;
+      color: var(--text-sub); display: flex; align-items: center; gap: 11px; cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); border: 1px solid transparent;
+    }
+    .nav-pill:hover { background: rgba(255, 255, 255, 0.06); color: var(--text-main); }
+    .nav-pill.active {
+      background: linear-gradient(135deg, rgba(2, 132, 199, 0.25), rgba(37, 99, 235, 0.18));
+      color: #38BDF8; border: 1px solid rgba(56, 189, 248, 0.35);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+    }
+
+    /* Central Content Area */
+    .main-stage { flex: 1; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+    .stage-panel { display: none; width: 100%; height: 100%; position: relative; overflow-y: auto; }
+    .stage-panel.active { display: flex; flex-direction: column; }
+
+    /* 3D Viewport & HUD Overlay */
+    #three-viewport { width: 100%; height: 100%; position: absolute; inset: 0; background: #070B14; }
+
+    .glass-hud {
+      position: absolute; top: 18px; left: 18px;
+      background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(20px) saturate(190%);
+      -webkit-backdrop-filter: blur(20px) saturate(190%);
+      border: 1px solid var(--glass-border); border-radius: 14px;
+      padding: 16px 20px; box-shadow: var(--glass-shadow); z-index: 20; min-width: 320px;
+    }
+    .glass-hud h3 { font-size: 14px; font-weight: 700; color: #38BDF8; margin-bottom: 6px; letter-spacing: 0.3px; }
+    .glass-hud p { font-size: 12px; color: var(--text-sub); line-height: 1.4; margin-bottom: 12px; }
+
+    /* Floating Metric Strip */
+    .hud-metrics {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;
+    }
+    .metric-box {
+      background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px; padding: 8px 10px;
+    }
+    .metric-label { font-size: 10.5px; color: var(--text-sub); text-transform: uppercase; font-weight: 600; }
+    .metric-val { font-size: 15px; font-weight: 800; font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+    .val-accent { color: #38BDF8; }
+    .val-pass { color: #10B981; }
+
+    /* Floating Camera Presets */
+    .camera-dock {
+      position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(24px) saturate(200%);
+      -webkit-backdrop-filter: blur(24px) saturate(200%);
+      border: 1px solid var(--glass-border); border-radius: 9999px;
+      padding: 6px 10px; display: flex; gap: 6px; box-shadow: var(--glass-shadow); z-index: 20;
+    }
+    .cam-btn {
+      background: transparent; border: none; color: var(--text-sub); font-size: 12px; font-weight: 600;
+      padding: 6px 14px; border-radius: 9999px; cursor: pointer; transition: all 0.2s;
+    }
+    .cam-btn:hover { color: white; background: rgba(255, 255, 255, 0.1); }
+    .cam-btn.active { background: #0284C7; color: white; box-shadow: 0 0 12px rgba(56, 189, 248, 0.5); }
+
+    /* Glass Cards in Panels */
+    .glass-card {
+      background: var(--glass-card); backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid var(--glass-border); border-radius: 14px;
+      padding: 24px; box-shadow: var(--glass-shadow); margin-bottom: 20px;
+    }
+    .glass-card h3 { font-size: 16px; font-weight: 700; color: #BAE6FD; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+
+    /* 2D CAD Canvas */
+    .cad-canvas-glass {
+      background: rgba(10, 15, 29, 0.85); backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border); border-radius: 14px; padding: 22px;
+      margin-bottom: 20px; box-shadow: var(--glass-shadow); position: relative;
+    }
+
+    /* Modal Windows */
+    .glass-modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(3, 7, 18, 0.78);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      z-index: 1000; align-items: center; justify-content: center;
+    }
+    .glass-modal {
+      background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(28px) saturate(200%);
+      -webkit-backdrop-filter: blur(28px) saturate(200%);
+      border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 18px; width: 560px;
+      padding: 28px; box-shadow: 0 25px 60px -15px rgba(0,0,0,0.8), inset 0 1px 0 0 rgba(255,255,255,0.25);
+      animation: modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes modalIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+    /* Tables */
+    .glass-table { width: 100%; border-collapse: collapse; font-size: 13.5px; text-align: left; }
+    .glass-table th {
+      background: rgba(255, 255, 255, 0.05); padding: 12px 14px; color: #94A3B8; font-weight: 600;
+      border-bottom: 1px solid var(--glass-border);
+    }
+    .glass-table td { padding: 12px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+
+    /* In-place editor */
+    .glass-inplace-input {
+      position: absolute; background: rgba(30, 58, 138, 0.95); color: white;
+      border: 2px solid #38BDF8; border-radius: 6px; padding: 4px 8px; font-size: 13px; font-weight: 700;
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.6); outline: none; z-index: 200;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Floating Glass Navigation Header -->
+  <header>
+    <div class="brand">
+      <div class="logo-glow">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4">
+          <path d="M2 18h20M4 18V8l8-4 8 4v10M9 18v-5h6v5M12 4v4"/>
+        </svg>
+      </div>
+      <div>
+        <h1>OsdagBridge</h1>
+      </div>
+      <div class="glass-badge">
+        <div class="badge-pulse"></div>
+        <span>Localhost : 8080 Active</span>
+      </div>
+      <div class="glass-badge" style="border-color: rgba(99, 102, 241, 0.4); background: rgba(99, 102, 241, 0.12); color: #C7D2FE;">
+        FOSSEE IIT Bombay
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 10px;">
+      <button class="btn btn-glass" onclick="exportIFC()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        Download .IFC
+      </button>
+      <button class="btn btn-gradient" onclick="generateReport()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+        Generate LaTeX Report
+      </button>
+      <button class="btn btn-glass" style="border-color: rgba(245, 158, 11, 0.5); color: #FBBF24;" onclick="runAutomatedTests()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+        Run Test Suite
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Body Layout -->
+  <div class="app-body">
+    
+    <!-- Glass Sidebar Navigation -->
+    <div class="glass-sidebar">
+      <div class="nav-pill active" onclick="switchStage('3d-cad', this)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16zM3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/></svg>
+        3D Substructure CAD
+      </div>
+      <div class="nav-pill" onclick="switchStage('2d-cad', this)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        2D Interactive CAD
+      </div>
+      <div class="nav-pill" onclick="switchStage('additional-inputs', this)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        Additional Inputs (Validation)
+      </div>
+      <div class="nav-pill" onclick="switchStage('plots', this)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M18 9l-5 5-4-4-3 3"/></svg>
+        Transverse Plotting
+      </div>
+      <div class="nav-pill" onclick="switchStage('boq-costing', this)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 100 4h4a2 2 0 110 4H8M12 6v2M12 16v2"/></svg>
+        BOQ Cost Estimation (₹)
+      </div>
+      <div class="nav-pill" onclick="switchStage('report-preview', this)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg>
+        LaTeX Report & Charts
+      </div>
+      <div class="nav-pill" onclick="switchStage('testing-suite', this)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Test Suite & GitHub Issues
+      </div>
+    </div>
+
+    <!-- Main Stage Content -->
+    <div class="main-stage">
+      
+      <!-- STAGE 1: 3D CAD REALISTIC VIEWPORT WITH GLASS HUD -->
+      <div id="panel-3d-cad" class="stage-panel active">
+        <div id="three-viewport"></div>
+
+        <!-- Glass Telemetry HUD -->
+        <div class="glass-hud">
+          <h3>BRIDGE TELEMETRY & SUBSTRUCTURE</h3>
+          <p>Parametric 3D CAD Model with Semi-Transparent Concrete (0.35 opacity) & Visible Reinforcement.</p>
+
+          <div class="hud-metrics">
+            <div class="metric-box">
+              <div class="metric-label">Max Utilization</div>
+              <div class="metric-val val-pass" id="hud-ur">0.82 (PASS)</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-label">Est. Cost (₹)</div>
+              <div class="metric-val val-accent" id="hud-cost">₹ 69.98 L</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-label">Span / Width</div>
+              <div class="metric-val" id="hud-span">24m / 8.4m</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-label">Pier Foundation</div>
+              <div class="metric-val">2x2 Piles (400mm)</div>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn btn-glass" style="font-size: 11.5px; padding: 6px 10px;" onclick="toggleRebar()">Toggle Rebar</button>
+            <button class="btn btn-glass" style="font-size: 11.5px; padding: 6px 10px;" onclick="toggleSubstructureOnly()">Substructure Only</button>
+            <button class="btn btn-glass" style="font-size: 11.5px; padding: 6px 10px;" onclick="resetCamera()">Reset View</button>
+          </div>
+        </div>
+
+        <!-- Floating Camera Presets Dock -->
+        <div class="camera-dock">
+          <button class="cam-btn active" onclick="setCamPreset('perspective', this)">Perspective 3D</button>
+          <button class="cam-btn" onclick="setCamPreset('pier-closeup', this)">Pier & Rebar Close-up</button>
+          <button class="cam-btn" onclick="setCamPreset('top', this)">Top Elevation</button>
+          <button class="cam-btn" onclick="setCamPreset('side', this)">Cross Section</button>
+        </div>
+      </div>
+
+      <!-- STAGE 2: 2D CAD INTERACTIVE EDITING (TASK 2) -->
+      <div id="panel-2d-cad" class="stage-panel" style="padding: 24px;">
+        <div class="glass-card" style="padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div>
+            <strong style="color: #38BDF8;">Interactive 2D Parameter Editing (Task 2 Task I)</strong><br>
+            <span style="font-size: 12.5px; color: var(--text-sub);">Double-click numerical text labels (Carriageway Width, Girder Spacing, Deck Thickness, Span Length) to edit in-place!</span>
+          </div>
+          <span class="glass-badge" style="background: rgba(16, 185, 129, 0.15); color: #34D399; border-color: rgba(16, 185, 129, 0.3);">
+            Derived Overhang & Width are Locked
+          </span>
+        </div>
+
+        <div class="cad-canvas-glass">
+          <h4 style="font-size: 14.5px; color: #BAE6FD; margin-bottom: 12px;">Bridge Typical Cross Section (Y-Z Plane)</h4>
+          <svg id="svg-cross-section" width="100%" height="300" style="overflow: visible;"></svg>
+        </div>
+
+        <div class="cad-canvas-glass">
+          <h4 style="font-size: 14.5px; color: #BAE6FD; margin-bottom: 12px;">Bridge Span Elevation & Top View (X-Y Plane)</h4>
+          <svg id="svg-top-view" width="100%" height="220" style="overflow: visible;"></svg>
+        </div>
+      </div>
+
+      <!-- STAGE 3: ADDITIONAL INPUTS & VALIDATION -->
+      <div id="panel-additional-inputs" class="stage-panel" style="padding: 28px; max-width: 820px;">
+        <div class="glass-card">
+          <h3>
+            Additional Inputs Dialog (Task 2 Task II)
+            <span class="glass-badge">Pre-Save Validation</span>
+          </h3>
+          <p style="font-size: 13.5px; color: var(--text-sub); line-height: 1.5; margin-bottom: 20px;">
+            Tests pre-save validation rules. Setting any property to <strong>Custom</strong> and leaving the field empty will halt save and trigger the standard OsdagBridge error modal.
+          </p>
+
+          <div style="margin-bottom: 18px;">
+            <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">Top Flange Thickness Mode:</label>
+            <select id="flange-mode" class="btn btn-glass" style="width: 220px;" onchange="onFlangeModeChange()">
+              <option value="Optimized">Optimized (Automatic)</option>
+              <option value="Custom">Custom</option>
+            </select>
+          </div>
+
+          <div id="custom-flange-group" style="display: none; margin-bottom: 18px;">
+            <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px; color: #FBBF24;">
+              Custom Top Flange Thickness (mm):
+            </label>
+            <input type="number" id="custom-flange-val" placeholder="Leave blank to trigger Pre-Save Error!" style="width: 100%; padding: 10px 14px; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--glass-border); color: white; border-radius: 8px; font-size: 13.5px;">
+          </div>
+
+          <div style="margin-bottom: 24px;">
+            <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">Concrete Deck Material Grade:</label>
+            <select id="deck-grade" class="btn btn-glass" style="width: 220px;">
+              <option value="M40">M40 (IRC 112 Standard)</option>
+              <option value="M45">M45 High Performance</option>
+              <option value="M50">M50 Prestressed</option>
+            </select>
+          </div>
+
+          <div style="display: flex; gap: 10px;">
+            <button class="btn btn-gradient" onclick="submitAdditionalInputs()">Save Additional Inputs</button>
+            <button class="btn btn-glass" onclick="triggerUnsavedWarning()">Test Unsaved Changes Warning</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- STAGE 4: TRANSVERSE RESULT PLOTTING -->
+      <div id="panel-plots" class="stage-panel">
+        <div style="padding: 16px 24px; background: rgba(15, 23, 42, 0.65); border-bottom: 1px solid var(--glass-border); display: flex; gap: 16px; align-items: center;">
+          <div>
+            <label style="font-size: 11.5px; color: var(--text-sub); font-weight: 600; display: block; margin-bottom: 4px;">Member Selection:</label>
+            <select id="plot-member-select" class="btn btn-glass" onchange="refreshPlot()">
+              <option value="Longitudinal Girders">Longitudinal Girders (G1, G2, G3, G4)</option>
+              <option value="End Diaphragms">End Diaphragms (ED-1, ED-2)</option>
+              <option value="Intermediate Cross Bracings">Intermediate Cross Bracings (CB-1, CB-2)</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 11.5px; color: var(--text-sub); font-weight: 600; display: block; margin-bottom: 4px;">IRC Load Case:</label>
+            <select id="plot-loadcase-select" class="btn btn-glass" onchange="refreshPlot()">
+              <option value="ULS-01">ULS-01 (Factored Ultimate Limit State)</option>
+              <option value="SLS-01">SLS-01 (Serviceability Limit State)</option>
+              <option value="IRC Class A">IRC Class A Live Load</option>
+              <option value="IRC Class 70R">IRC Class 70R Wheeled</option>
+              <option value="Dead Load (DL)">Dead Load (Self Weight)</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 11.5px; color: var(--text-sub); font-weight: 600; display: block; margin-bottom: 4px;">Result Component:</label>
+            <select id="plot-component-select" class="btn btn-glass" onchange="refreshPlot()">
+              <option value="Mz">Bending Moment (Mz)</option>
+              <option value="Vy">Shear Force (Vy)</option>
+              <option value="dz">Vertical Deflection (dz)</option>
+            </select>
+          </div>
+        </div>
+        <div style="flex: 1; padding: 24px;" id="plotly-container"></div>
+      </div>
+
+      <!-- STAGE 5: BOQ COST ESTIMATION (₹) -->
+      <div id="panel-boq-costing" class="stage-panel" style="padding: 24px; max-width: 960px;">
+        <div class="glass-card">
+          <h3>
+            Bridge Bill of Quantities (BOQ) & Cost Estimation
+            <span class="glass-badge" style="color: #38BDF8;">MoRTH / CPWD Schedule of Rates</span>
+          </h3>
+          <p style="font-size: 13.5px; color: var(--text-sub); margin-bottom: 20px;">
+            Itemized material take-off and direct fabrication/construction cost estimation calculated dynamically in Indian Rupees (₹).
+          </p>
+
+          <table class="glass-table">
+            <thead>
+              <tr>
+                <th>Item Description</th>
+                <th>Specification</th>
+                <th>Quantity</th>
+                <th>Unit Rate (₹)</th>
+                <th>Total Cost (₹)</th>
+              </tr>
+            </thead>
+            <tbody id="boq-table-body">
+              <tr>
+                <td><strong>Structural Steel Girders</strong></td>
+                <td>IS 2062 E350/E410</td>
+                <td id="boq-steel-qty">42.50 MT</td>
+                <td>₹ 95,000 / MT</td>
+                <td id="boq-steel-cost"><strong>₹ 40,37,500</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Bracing & Diaphragms</strong></td>
+                <td>Structural Angles / Channels</td>
+                <td id="boq-bracing-qty">8.05 MT</td>
+                <td>₹ 92,000 / MT</td>
+                <td id="boq-bracing-cost"><strong>₹ 7,40,600</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Concrete Deck Slab</strong></td>
+                <td>M40 Design Mix Concrete</td>
+                <td id="boq-deck-qty">78.40 m³</td>
+                <td>₹ 8,500 / m³</td>
+                <td id="boq-deck-cost"><strong>₹ 6,66,400</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Deck Rebar Steel</strong></td>
+                <td>Fe 500D TMT Reinforcement</td>
+                <td id="boq-rebar-qty">9.80 MT</td>
+                <td>₹ 72,000 / MT</td>
+                <td id="boq-rebar-cost"><strong>₹ 7,05,600</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Substructure Foundation</strong></td>
+                <td>Piers, Pier Caps, Piles (2x2)</td>
+                <td>18.3 m³ + 8 Piles</td>
+                <td>Composite</td>
+                <td id="boq-sub-cost"><strong>₹ 4,64,060</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Shear Stud Connectors</strong></td>
+                <td>19mm Headed Studs</td>
+                <td>384 pcs</td>
+                <td>₹ 350 / pc</td>
+                <td><strong>₹ 1,34,400</strong></td>
+              </tr>
+              <tr style="background: rgba(56, 189, 248, 0.08);">
+                <td colspan="4" style="font-size: 15px; font-weight: 700; color: #38BDF8;">TOTAL ESTIMATED DIRECT MATERIAL COST</td>
+                <td style="font-size: 16px; font-weight: 800; color: #38BDF8;" id="boq-total-cost">₹ 69,98,160 (~₹ 70 Lakhs)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- STAGE 6: LATEX REPORT & CHARTS -->
+      <div id="panel-report-preview" class="stage-panel" style="padding: 24px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 20px;">
+          <div class="glass-card">
+            <h3>
+              Section 5.5: Demand/Capacity Utilization Ratio
+              <span class="glass-badge" style="color: #34D399;">UR = 1.0 Limit</span>
+            </h3>
+            <p style="font-size: 12.5px; color: var(--text-sub); margin-bottom: 14px;">
+              Visualizes Demand / Capacity with a prominent red dashed reference line at UR = 1.0 (passing checks $\le 1.0$ vs failing checks $> 1.0$).
+            </p>
+            <img id="img-ur-chart" src="/reports/ur_summary_chart.png" alt="UR Chart" style="width: 100%; border-radius: 8px; border: 1px solid var(--glass-border);">
+          </div>
+
+          <div class="glass-card">
+            <h3>Chapter 7: Material Quantity Visualizations</h3>
+            <p style="font-size: 12.5px; color: var(--text-sub); margin-bottom: 14px;">
+              Structural steel tonnage breakdown (Girders, Cross Bracing, End Diaphragms) and Concrete volume vs Rebar weight.
+            </p>
+            <img id="img-steel-chart" src="/reports/material_steel_tonnage.png" alt="Steel Chart" style="width: 100%; border-radius: 8px; border: 1px solid var(--glass-border); margin-bottom: 14px;">
+            <img id="img-conc-chart" src="/reports/material_concrete_rebar.png" alt="Concrete Rebar Chart" style="width: 100%; border-radius: 8px; border: 1px solid var(--glass-border);">
+          </div>
+        </div>
+      </div>
+
+      <!-- STAGE 7: TESTING SUITE & GITHUB ISSUES -->
+      <div id="panel-testing-suite" class="stage-panel" style="padding: 24px;">
+        <div class="glass-card">
+          <h3>
+            Multi-Level Testing & Issue Reporting Suite (Task 4)
+            <button class="btn btn-gradient" style="font-size: 12px; padding: 6px 12px;" onclick="runAutomatedTests()">Re-Run Suite</button>
+          </h3>
+          <table class="glass-table">
+            <thead>
+              <tr>
+                <th>Test ID</th>
+                <th>Test Case Title</th>
+                <th>Category</th>
+                <th>Status</th>
+                <th>Verification Details</th>
+              </tr>
+            </thead>
+            <tbody id="test-results-body">
+              <tr><td colspan="5" style="text-align: center; color: var(--text-sub);">Click "Run Test Suite" to execute test cases.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="glass-card">
+          <h3>Documented GitHub Issue Reports</h3>
+          <div id="github-issues-container"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Glass Validation Error Modal -->
+  <div class="glass-modal-overlay" id="error-modal">
+    <div class="glass-modal">
+      <h3 style="color: #EF4444; font-size: 17px; margin-bottom: 12px;" id="modal-err-title">Validation Error</h3>
+      <p id="modal-err-msg" style="color: var(--text-sub); font-size: 14px; line-height: 1.5; margin-bottom: 24px;">An error occurred.</p>
+      <div style="display: flex; justify-content: flex-end;">
+        <button class="btn btn-gradient" onclick="closeModal('error-modal')">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Glass Unsaved Changes Modal -->
+  <div class="glass-modal-overlay" id="unsaved-modal">
+    <div class="glass-modal">
+      <h3 style="color: #F59E0B; font-size: 17px; margin-bottom: 12px;">Unsaved Changes Warning</h3>
+      <p style="color: var(--text-sub); font-size: 14px; line-height: 1.5; margin-bottom: 24px;">
+        You have unsaved changes. Closing this window will discard them. Do you want to proceed?
+      </p>
+      <div style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button class="btn btn-glass" onclick="closeModal('unsaved-modal')">Cancel</button>
+        <button class="btn btn-gradient" style="background: #DC2626;" onclick="closeModal('unsaved-modal')">Discard Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentBridgeData = null;
+    let scene, camera, renderer, controls;
+    let rebarGroup, concreteGroup, superGroup, riverMesh;
+    let showRebar = true;
+    let substructureOnly = false;
+
+    // --- Tab Switching ---
+    function switchStage(stageId, el) {
+      document.querySelectorAll('.nav-pill').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.stage-panel').forEach(p => p.classList.remove('active'));
+      el.classList.add('active');
+      document.getElementById('panel-' + stageId).classList.add('active');
+
+      if (stageId === 'plots') setTimeout(refreshPlot, 100);
+      if (stageId === '2d-cad') render2DCAD();
+    }
+
+    // --- Three.js Real & Aesthetic Viewport ---
+    function init3D() {
+      const container = document.getElementById('three-viewport');
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x070B14);
+      scene.fog = new THREE.FogExp2(0x070B14, 0.000025);
+
+      camera = new THREE.PerspectiveCamera(42, container.clientWidth / container.clientHeight, 1, 150000);
+      camera.position.set(32000, 22000, 18000);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.target.set(0, 0, -2200);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.update();
+
+      // Atmospheric Lighting
+      const ambientLight = new THREE.AmbientLight(0xE2E8F0, 0.65);
+      scene.add(ambientLight);
+
+      const sunLight = new THREE.DirectionalLight(0xFFFFFF, 1.1);
+      sunLight.position.set(25000, 35000, 45000);
+      sunLight.castShadow = true;
+      sunLight.shadow.mapSize.width = 2048;
+      sunLight.shadow.mapSize.height = 2048;
+      scene.add(sunLight);
+
+      const hemiLight = new THREE.HemisphereLight(0x38BDF8, 0x0F172A, 0.45);
+      scene.add(hemiLight);
+
+      // Reflective River Water Surface
+      const riverGeo = new THREE.PlaneGeometry(90000, 30000);
+      const riverMat = new THREE.MeshStandardMaterial({
+        color: 0x0284C7, roughness: 0.1, metalness: 0.85, transparent: true, opacity: 0.72
+      });
+      riverMesh = new THREE.Mesh(riverGeo, riverMat);
+      riverMesh.position.set(0, 0, -8200);
+      scene.add(riverMesh);
+
+      // Construction Grid Plane
+      const grid = new THREE.GridHelper(70000, 70, 0x1E293B, 0x0F172A);
+      grid.position.y = -8600;
+      scene.add(grid);
+
+      window.addEventListener('resize', onWindowResize);
+      animate();
+      load3DGeometry();
+    }
+
+    function onWindowResize() {
+      const container = document.getElementById('three-viewport');
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    // Camera Presets
+    function setCamPreset(preset, btn) {
+      document.querySelectorAll('.cam-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (preset === 'perspective') {
+        camera.position.set(32000, 22000, 18000);
+        controls.target.set(0, 0, -2200);
+      } else if (preset === 'pier-closeup') {
+        camera.position.set(-10500, 8000, -2000);
+        controls.target.set(-12000, 0, -3500);
+      } else if (preset === 'top') {
+        camera.position.set(0, 0, 42000);
+        controls.target.set(0, 0, 0);
+      } else if (preset === 'side') {
+        camera.position.set(0, 28000, 0);
+        controls.target.set(0, 0, -1600);
+      }
+      controls.update();
+    }
+
+    function resetCamera() {
+      setCamPreset('perspective', document.querySelectorAll('.cam-btn')[0]);
+    }
+
+    function toggleRebar() {
+      showRebar = !showRebar;
+      if (rebarGroup) rebarGroup.visible = showRebar;
+    }
+
+    function toggleSubstructureOnly() {
+      substructureOnly = !substructureOnly;
+      if (superGroup) superGroup.visible = !substructureOnly;
+    }
+
+    // --- Build 3D Models with Realistic PBR Textures ---
+    function load3DGeometry() {
+      fetch('/api/geometry/3d')
+        .then(r => r.json())
+        .then(data => {
+          if (data.status === 'success') {
+            buildSceneObjects(data);
+          }
+        });
+    }
+
+    function buildSceneObjects(data) {
+      if (rebarGroup) scene.remove(rebarGroup);
+      if (concreteGroup) scene.remove(concreteGroup);
+      if (superGroup) scene.remove(superGroup);
+
+      rebarGroup = new THREE.Group();
+      concreteGroup = new THREE.Group();
+      superGroup = new THREE.Group();
+
+      // Materials
+      const steelMat = new THREE.MeshStandardMaterial({
+        color: 0x1E3A8A, metalness: 0.8, roughness: 0.35
+      });
+      const concreteSemiTransMat = new THREE.MeshStandardMaterial({
+        color: 0xE2E8F0, transparent: true, opacity: 0.35, roughness: 0.85, depthWrite: false
+      });
+      const asphaltMat = new THREE.MeshStandardMaterial({
+        color: 0x18181B, roughness: 0.95, metalness: 0.1
+      });
+      const rebarMat = new THREE.MeshStandardMaterial({
+        color: 0x38BDF8, metalness: 0.95, roughness: 0.2
+      });
+      const tieRingMat = new THREE.MeshStandardMaterial({
+        color: 0xF59E0B, metalness: 0.9, roughness: 0.25
+      });
+      const bearingMat = new THREE.MeshStandardMaterial({
+        color: 0x0F172A, roughness: 0.9, metalness: 0.3
+      });
+      const lineStripeMat = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
+
+      // 1. Superstructure: Deck Slab, Asphalt & Markings
+      const deckDim = data.superstructure.deck_slab.dimensions;
+      const deckMesh = new THREE.Mesh(new THREE.BoxGeometry(deckDim[0], deckDim[1], deckDim[2]), concreteSemiTransMat);
+      deckMesh.position.set(...data.superstructure.deck_slab.position);
+      superGroup.add(deckMesh);
+
+      // Asphalt Surface (Wearing Course)
+      const asphaltMesh = new THREE.Mesh(new THREE.BoxGeometry(deckDim[0], deckDim[1] - 900, 50), asphaltMat);
+      asphaltMesh.position.set(0, 0, 25);
+      superGroup.add(asphaltMesh);
+
+      // Road Striping (Centerline dashed dashes)
+      const nDashes = 18;
+      for (let d = 0; d < nDashes; d++) {
+        const dx = -deckDim[0]/2 + 1000 + (d * (deckDim[0] / nDashes));
+        const dashMesh = new THREE.Mesh(new THREE.BoxGeometry(800, 150, 4), lineStripeMat);
+        dashMesh.position.set(dx, 0, 52);
+        superGroup.add(dashMesh);
+      }
+
+      // Crash Barriers
+      data.superstructure.crash_barriers.forEach(cb => {
+        const cbMesh = new THREE.Mesh(new THREE.BoxGeometry(cb.dimensions[0], cb.dimensions[1], cb.dimensions[2]), concreteSemiTransMat);
+        cbMesh.position.set(...cb.position);
+        superGroup.add(cbMesh);
+      });
+
+      // Girders (Web, Top Flange, Bottom Flange)
+      data.superstructure.girders.forEach(g => {
+        const wDim = g.web.dimensions;
+        const wMesh = new THREE.Mesh(new THREE.BoxGeometry(wDim[0], wDim[1], wDim[2]), steelMat);
+        wMesh.position.set(...g.web.position);
+        superGroup.add(wMesh);
+
+        const tfDim = g.top_flange.dimensions;
+        const tfMesh = new THREE.Mesh(new THREE.BoxGeometry(tfDim[0], tfDim[1], tfDim[2]), steelMat);
+        tfMesh.position.set(...g.top_flange.position);
+        superGroup.add(tfMesh);
+
+        const bfDim = g.bottom_flange.dimensions;
+        const bfMesh = new THREE.Mesh(new THREE.BoxGeometry(bfDim[0], bfDim[1], bfDim[2]), steelMat);
+        bfMesh.position.set(...g.bottom_flange.position);
+        superGroup.add(bfMesh);
+      });
+
+      // Bearings
+      if (data.superstructure.bearings) {
+        data.superstructure.bearings.forEach(b => {
+          const bMesh = new THREE.Mesh(new THREE.BoxGeometry(b.dimensions[0], b.dimensions[1], b.dimensions[2]), bearingMat);
+          bMesh.position.set(...b.position);
+          superGroup.add(bMesh);
+        });
+      }
+
+      // Stiffeners
+      if (data.superstructure.stiffeners) {
+        data.superstructure.stiffeners.forEach(s => {
+          const sMesh = new THREE.Mesh(new THREE.BoxGeometry(s.dimensions[0], s.dimensions[1], s.dimensions[2]), steelMat);
+          sMesh.position.set(...s.position);
+          superGroup.add(sMesh);
+        });
+      }
+
+      // Cross Bracing Members
+      if (data.superstructure.cross_bracings) {
+        data.superstructure.cross_bracings.forEach(cb => {
+          if (cb.type === 'chord') {
+            const cMesh = new THREE.Mesh(new THREE.BoxGeometry(cb.dimensions[0], cb.dimensions[1], cb.dimensions[2]), steelMat);
+            cMesh.position.set(...cb.position);
+            superGroup.add(cMesh);
+          } else if (cb.type === 'diagonal') {
+            const diagMesh = new THREE.Mesh(new THREE.CylinderGeometry(40, 40, cb.length, 6), steelMat);
+            diagMesh.rotation.z = cb.angle;
+            diagMesh.position.set(...cb.position);
+            superGroup.add(diagMesh);
+          }
+        });
+      }
+
+      // 2. Substructure Components
+      data.substructure.components.forEach(comp => {
+        if (comp.component_type === 'PierCap') {
+          const cap = comp.concrete;
+          const capGeo = new THREE.BoxGeometry(cap.top_width, cap.length, cap.depth);
+          const capMesh = new THREE.Mesh(capGeo, concreteSemiTransMat);
+          capMesh.position.set(...cap.center);
+          concreteGroup.add(capMesh);
+
+          comp.rebar.forEach(rb => {
+            const rGeo = new THREE.CylinderGeometry(rb.diameter, rb.diameter, rb.length, 8);
+            const rMesh = new THREE.Mesh(rGeo, rebarMat);
+            rMesh.rotation.x = Math.PI / 2;
+            rMesh.position.set(rb.start[0], (rb.start[1] + rb.end[1]) / 2, rb.start[2]);
+            rebarGroup.add(rMesh);
+          });
+        }
+        else if (comp.component_type === 'Pier') {
+          const p = comp.concrete;
+          const pGeo = new THREE.CylinderGeometry(p.radius, p.radius, p.height, 36);
+          const pMesh = new THREE.Mesh(pGeo, concreteSemiTransMat);
+          pMesh.rotation.x = Math.PI / 2;
+          pMesh.position.set(p.base_center[0], p.base_center[1], p.base_center[2] + p.height / 2);
+          concreteGroup.add(pMesh);
+
+          comp.rebar_longitudinal.forEach(rb => {
+            const rbGeo = new THREE.CylinderGeometry(rb.diameter, rb.diameter, rb.length, 8);
+            const rbMesh = new THREE.Mesh(rbGeo, rebarMat);
+            rbMesh.position.set(rb.start[0], rb.start[1], (rb.start[2] + rb.end[2]) / 2);
+            rebarGroup.add(rbMesh);
+          });
+
+          comp.rebar_transverse.forEach(ring => {
+            const ringGeo = new THREE.TorusGeometry(ring.radius, ring.wire_diameter / 2, 8, 36);
+            const ringMesh = new THREE.Mesh(ringGeo, tieRingMat);
+            ringMesh.position.set(ring.center[0], ring.center[1], ring.center[2]);
+            rebarGroup.add(ringMesh);
+          });
+        }
+        else if (comp.component_type === 'PileCap') {
+          const pc = comp.concrete;
+          const pcMesh = new THREE.Mesh(new THREE.BoxGeometry(pc.dimensions[0], pc.dimensions[1], pc.dimensions[2]), concreteSemiTransMat);
+          pcMesh.position.set(...pc.center);
+          concreteGroup.add(pcMesh);
+        }
+        else if (comp.component_type === 'PileGroup') {
+          comp.piles_concrete.forEach(pile => {
+            const pileGeo = new THREE.CylinderGeometry(pile.radius, pile.radius, pile.height, 24);
+            const pileMesh = new THREE.Mesh(pileGeo, concreteSemiTransMat);
+            pileMesh.position.set(pile.top_center[0], pile.top_center[1], pile.top_center[2] - pile.height / 2);
+            concreteGroup.add(pileMesh);
+          });
+          comp.piles_rebar.forEach(rb => {
+            const rbGeo = new THREE.CylinderGeometry(rb.diameter, rb.diameter, rb.length, 8);
+            const rbMesh = new THREE.Mesh(rbGeo, rebarMat);
+            rbMesh.position.set(rb.start[0], rb.start[1], (rb.start[2] + rb.end[2]) / 2);
+            rebarGroup.add(rbMesh);
+          });
+        }
+      });
+
+      scene.add(superGroup);
+      scene.add(concreteGroup);
+      scene.add(rebarGroup);
+    }
+
+    // --- 2D Interactive CAD Render ---
+    function render2DCAD() {
+      fetch('/api/state')
+        .then(r => r.json())
+        .then(res => {
+          currentBridgeData = res.state;
+          updateHUDMetrics(res.state);
+          drawTypicalCrossSection(res.state);
+          drawTopElevation(res.state);
+        });
+    }
+
+    function updateHUDMetrics(st) {
+      document.getElementById('hud-span').innerText = `${st.span_length/1000}m / ${(st.overall_bridge_width/1000).toFixed(1)}m`;
+      if (st.cost_estimation) {
+        document.getElementById('hud-cost').innerText = `₹ ${st.cost_estimation.total_lakhs} L`;
+        document.getElementById('boq-total-cost').innerText = `₹ ${st.cost_estimation.total_inr.toLocaleString('en-IN')} (~₹ ${st.cost_estimation.total_lakhs} Lakhs)`;
+      }
+      if (st.utilization_ratios) {
+        const maxUr = Math.max(...Object.values(st.utilization_ratios));
+        document.getElementById('hud-ur').innerText = `${maxUr.toFixed(2)} (${maxUr <= 1.0 ? 'PASS' : 'FAIL'})`;
+        document.getElementById('hud-ur').className = `metric-val ${maxUr <= 1.0 ? 'val-pass' : 'val-accent'}`;
+      }
+    }
+
+    function drawTypicalCrossSection(st) {
+      const svg = document.getElementById('svg-cross-section');
+      svg.innerHTML = '';
+      const scale = 0.055;
+      const originX = 400;
+      const originY = 135;
+
+      const cw = st.carriageway_width * scale;
+      const deckW = st.overall_bridge_width * scale;
+      const deckT = st.deck_thickness * scale;
+      const gSpacing = st.girder_spacing * scale;
+      const gDepth = st.girder_depth * scale;
+      const nG = st.num_girders;
+
+      // Concrete Deck Slab
+      svg.innerHTML += `<rect x="${originX - deckW/2}" y="${originY}" width="${deckW}" height="${deckT}" fill="rgba(71, 85, 105, 0.6)" stroke="#94A3B8" stroke-width="1.8" rx="3" />`;
+
+      // Girders
+      const totalGWidth = (nG - 1) * gSpacing;
+      for (let i = 0; i < nG; i++) {
+        const gx = originX - (totalGWidth / 2) + (i * gSpacing);
+        const gy = originY + deckT;
+        svg.innerHTML += `<line x1="${gx}" y1="${gy}" x2="${gx}" y2="${gy + gDepth}" stroke="#38BDF8" stroke-width="4.5" />`;
+        svg.innerHTML += `<line x1="${gx - 14}" y1="${gy}" x2="${gx + 14}" y2="${gy}" stroke="#0284C7" stroke-width="3.5" />`;
+        svg.innerHTML += `<line x1="${gx - 18}" y1="${gy + gDepth}" x2="${gx + 18}" y2="${gy + gDepth}" stroke="#0284C7" stroke-width="3.5" />`;
+      }
+
+      // Dimensions with Glass Tooltips
+      drawDimension(svg, originX - cw/2, originX + cw/2, originY - 32, `Carriageway Width = ${(st.carriageway_width/1000).toFixed(2)} m`, 'carriageway_width', true);
+      drawDimension(svg, originX - deckW/2, originX + deckW/2, originY - 60, `Overall Bridge Width = ${(st.overall_bridge_width/1000).toFixed(2)} m [LOCKED]`, 'overall_bridge_width', false);
+      const gx1 = originX - (totalGWidth / 2);
+      drawDimension(svg, gx1, gx1 + gSpacing, originY + deckT + gDepth + 28, `Girder Spacing = ${(st.girder_spacing/1000).toFixed(2)} m`, 'girder_spacing', true);
+      drawVerticalDimension(svg, originX + deckW/2 + 25, originY, originY + deckT, `Deck = ${(st.deck_thickness/1000).toFixed(2)} m`, 'deck_thickness', true);
+    }
+
+    function drawTopElevation(st) {
+      const svg = document.getElementById('svg-top-view');
+      svg.innerHTML = '';
+      const scale = 0.024;
+      const originX = 400;
+      const originY = 100;
+
+      const spanPx = st.span_length * scale;
+      const widthPx = st.overall_bridge_width * scale;
+
+      svg.innerHTML += `<rect x="${originX - spanPx/2}" y="${originY - widthPx/2}" width="${spanPx}" height="${widthPx}" fill="rgba(30, 41, 59, 0.7)" stroke="#38BDF8" stroke-width="1.8" rx="4" />`;
+      svg.innerHTML += `<circle cx="${originX - spanPx/2}" cy="${originY}" r="14" fill="#0284C7" stroke="#38BDF8" stroke-width="2" />`;
+      svg.innerHTML += `<circle cx="${originX + spanPx/2}" cy="${originY}" r="14" fill="#0284C7" stroke="#38BDF8" stroke-width="2" />`;
+
+      drawDimension(svg, originX - spanPx/2, originX + spanPx/2, originY + widthPx/2 + 35, `Span Length = ${(st.span_length/1000).toFixed(2)} m`, 'span_length', true);
+    }
+
+    function drawDimension(svg, x1, x2, y, label, field, editable) {
+      svg.innerHTML += `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />`;
+      svg.innerHTML += `<line x1="${x1}" y1="${y-6}" x2="${x1}" y2="${y+6}" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />`;
+      svg.innerHTML += `<line x1="${x2}" y1="${y-6}" x2="${x2}" y2="${y+6}" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />`;
+
+      const midX = (x1 + x2) / 2;
+      const color = editable ? '#38BDF8' : '#94A3B8';
+      const cursor = editable ? 'pointer' : 'default';
+
+      svg.innerHTML += `<text x="${midX}" y="${y - 7}" fill="${color}" font-size="12" font-weight="700" text-anchor="middle" style="cursor: ${cursor};" ondblclick="startInplaceEdit(event, '${field}', ${editable})">${label}</text>`;
+    }
+
+    function drawVerticalDimension(svg, x, y1, y2, label, field, editable) {
+      svg.innerHTML += `<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />`;
+      svg.innerHTML += `<line x1="${x-5}" y1="${y1}" x2="${x+5}" y2="${y1}" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />`;
+      svg.innerHTML += `<line x1="${x-5}" y1="${y2}" x2="${x+5}" y2="${y2}" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />`;
+
+      const midY = (y1 + y2) / 2;
+      svg.innerHTML += `<text x="${x + 9}" y="${midY + 4}" fill="#38BDF8" font-size="12" font-weight="700" style="cursor: pointer;" ondblclick="startInplaceEdit(event, '${field}', ${editable})">${label}</text>`;
+    }
+
+    // In-Place Double Click Glass Input
+    function startInplaceEdit(evt, field, editable) {
+      if (!editable) {
+        showError("Locked Derived Parameter", `The parameter '${field}' is mathematically derived. Direct editing is locked to maintain structural consistency.`);
+        return;
+      }
+
+      const rect = evt.target.getBoundingClientRect();
+      const currentValM = (currentBridgeData[field] / 1000).toFixed(2);
+
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.step = '0.05';
+      input.value = currentValM;
+      input.className = 'glass-inplace-input';
+      input.style.left = `${window.scrollX + rect.left - 20}px`;
+      input.style.top = `${window.scrollY + rect.top - 8}px`;
+      input.style.width = '110px';
+
+      document.body.appendChild(input);
+      input.focus();
+      input.select();
+
+      function commit() {
+        const valM = parseFloat(input.value);
+        if (input.parentNode) input.parentNode.removeChild(input);
+        if (!isNaN(valM) && valM > 0) {
+          fetch('/api/update-parameter', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ field: field, value: valM * 1000.0 })
+          })
+          .then(r => r.json())
+          .then(res => {
+            if (res.status === 'success') {
+              render2DCAD();
+              load3DGeometry();
+            } else {
+              showError("Input Validation Error", res.message);
+            }
+          });
+        }
+      }
+
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') commit();
+        if (e.key === 'Escape') if (input.parentNode) input.parentNode.removeChild(input);
+      });
+      input.addEventListener('blur', commit);
+    }
+
+    // Additional Inputs & Validation
+    function onFlangeModeChange() {
+      const mode = document.getElementById('flange-mode').value;
+      document.getElementById('custom-flange-group').style.display = mode === 'Custom' ? 'block' : 'none';
+    }
+
+    function submitAdditionalInputs() {
+      const mode = document.getElementById('flange-mode').value;
+      const val = document.getElementById('custom-flange-val').value;
+
+      fetch('/api/save-additional-inputs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          custom_params: {
+            "Top Flange Thickness": { mode: mode, value: val }
+          }
+        })
+      })
+      .then(async r => {
+        const res = await r.json();
+        if (r.status === 422) {
+          showError("Pre-Save Validation Error", res.error);
+        } else {
+          alert("Additional inputs saved successfully!");
+        }
+      });
+    }
+
+    function triggerUnsavedWarning() {
+      document.getElementById('unsaved-modal').style.display = 'flex';
+    }
+
+    // Plots
+    function refreshPlot() {
+      const member = document.getElementById('plot-member-select').value;
+      const lc = document.getElementById('plot-loadcase-select').value;
+      const comp = document.getElementById('plot-component-select').value;
+
+      fetch(`/api/plots/data?member_type=${encodeURIComponent(member)}&loadcase=${encodeURIComponent(lc)}&component=${encodeURIComponent(comp)}`)
+        .then(r => r.json())
+        .then(res => {
+          if (res.status === 'success') {
+            const trace = {
+              x: res.x, y: res.y, type: 'scatter', mode: 'lines+markers',
+              line: { color: '#38BDF8', width: 3 },
+              marker: { size: 6, color: '#BAE6FD' },
+              name: `${member}`
+            };
+            const layout = {
+              title: { text: `${member} — ${res.y_label} under ${lc}`, font: { color: '#F8FAFC', size: 16 } },
+              paper_bgcolor: 'rgba(15, 23, 42, 0.0)',
+              plot_bgcolor: 'rgba(30, 41, 59, 0.4)',
+              xaxis: { title: 'Span Distance x (m)', color: '#94A3B8', gridcolor: 'rgba(255, 255, 255, 0.08)' },
+              yaxis: { title: `${res.y_label}`, color: '#94A3B8', gridcolor: 'rgba(255, 255, 255, 0.08)' },
+              margin: { t: 50, b: 50, l: 65, r: 40 }
+            };
+            Plotly.newPlot('plotly-container', [trace], layout, { responsive: true });
+          }
+        });
+    }
+
+    function generateReport() {
+      fetch('/api/report/generate', { method: 'POST' })
+        .then(r => r.json())
+        .then(res => {
+          if (res.status === 'success') {
+            document.getElementById('img-ur-chart').src = '/reports/ur_summary_chart.png?' + new Date().getTime();
+            document.getElementById('img-steel-chart').src = '/reports/material_steel_tonnage.png?' + new Date().getTime();
+            document.getElementById('img-conc-chart').src = '/reports/material_concrete_rebar.png?' + new Date().getTime();
+            switchStage('report-preview', document.querySelectorAll('.nav-pill')[5]);
+            alert("LaTeX report & charts compiled successfully!");
+          }
+        });
+    }
+
+    function exportIFC() {
+      window.location.href = '/api/export-ifc';
+    }
+
+    function runAutomatedTests() {
+      switchStage('testing-suite', document.querySelectorAll('.nav-pill')[6]);
+      const tbody = document.getElementById('test-results-body');
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #38BDF8;">Running automated test suite...</td></tr>`;
+
+      fetch('/api/tests/run', { method: 'POST' })
+        .then(r => r.json())
+        .then(res => {
+          tbody.innerHTML = '';
+          res.test_results.forEach(t => {
+            const badgeStyle = t.status === 'PASSED' ? 'background: rgba(16, 185, 129, 0.2); color: #34D399;' : 'background: rgba(239, 68, 68, 0.2); color: #F87171;';
+            tbody.innerHTML += `
+              <tr>
+                <td><strong>${t.test_id}</strong></td>
+                <td>${t.title}</td>
+                <td style="color: #94A3B8;">${t.category}</td>
+                <td><span class="glass-badge" style="${badgeStyle}">${t.status}</span></td>
+                <td style="font-size: 13px;">${t.details}</td>
+              </tr>
+            `;
+          });
+
+          const issuesDiv = document.getElementById('github-issues-container');
+          issuesDiv.innerHTML = '';
+          res.github_issues.forEach(iss => {
+            issuesDiv.innerHTML += `
+              <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--glass-border); border-radius: 10px; padding: 16px; margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                  <span style="font-weight: 700; color: #F87171;">${iss.issue_num}: ${iss.title}</span>
+                  <span class="glass-badge" style="background: rgba(239, 68, 68, 0.15); color: #FCA5A5;">Severity: ${iss.severity}</span>
+                </div>
+                <div style="font-size: 12.5px; color: #94A3B8; margin-bottom: 6px;"><code>${iss.file}</code></div>
+                <div style="font-size: 13px; margin-bottom: 8px;">${iss.description}</div>
+                <div style="font-size: 12.5px; color: #34D399;"><strong>Fix:</strong> ${iss.fix}</div>
+              </div>
+            `;
+          });
+        });
+    }
+
+    function showError(title, msg) {
+      document.getElementById('modal-err-title').innerText = title;
+      document.getElementById('modal-err-msg').innerText = msg;
+      document.getElementById('error-modal').style.display = 'flex';
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).style.display = 'none';
+    }
+
+    window.onload = function() {
+      init3D();
+      render2DCAD();
+    };
+  </script>
+</body>
+</html>
